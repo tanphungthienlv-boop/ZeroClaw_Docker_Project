@@ -12,6 +12,7 @@ mkdir -p "$CONFIG_DIR"
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "📜 Generating config.toml from template..."
     cp "$TEMPLATE_FILE" "$CONFIG_FILE"
+    chmod 600 "$CONFIG_FILE"
 
     # Replace Telegram Token
     if [ -n "$TELEGRAM_TOKEN" ]; then

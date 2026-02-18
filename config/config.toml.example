@@ -16,7 +16,7 @@ allow_public_bind = true
 [channels.telegram]
 bot_token = "YOUR_TELEGRAM_BOT_TOKEN_HERE"
 allowed_users = ["*"]
-dm_policy = "open"
+
 
 # Cấu hình Provider AntiGravity (Custom OpenAI-Compatible)
 [providers.custom]
