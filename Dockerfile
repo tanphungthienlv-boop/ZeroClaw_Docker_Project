@@ -22,5 +22,10 @@ COPY --from=builder /app/target/release/zeroclaw /usr/local/bin/zeroclaw
 WORKDIR /root/.zeroclaw
 EXPOSE 8080
 
-# Start Gateway
-CMD ["zeroclaw", "gateway"]
+# Copy entrypoint script
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Start Daemon with Entrypoint
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
