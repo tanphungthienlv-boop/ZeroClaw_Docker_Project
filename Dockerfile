@@ -26,6 +26,9 @@ EXPOSE 8080
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# Copy config template for entrypoint generation
+COPY config/config.toml.example /app/config/config.toml.example
+
 # Start Daemon with Entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
