@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     npm \
     chromium \
     ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy compiled ZeroClaw binary
