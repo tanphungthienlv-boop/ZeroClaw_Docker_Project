@@ -519,7 +519,11 @@ Allowlist Telegram username (without '@') or numeric user ID.",
     }
 
     fn parse_update_message(&self, update: &serde_json::Value) -> Option<ChannelMessage> {
-        let message = update.get("message")?;
+        let message = update
+            .get("message")
+            .or_else(|| update.get("channel_post"))
+            .or_else(|| update.get("edited_message"))
+            .or_else(|| update.get("edited_channel_post"))?;
 
         let text = message.get("text").and_then(serde_json::Value::as_str)?;
 
@@ -1128,7 +1132,7 @@ impl Channel for TelegramChannel {
             let body = serde_json::json!({
                 "offset": offset,
                 "timeout": 30,
-                "allowed_updates": ["message"]
+                "allowed_updates": ["message", "edited_message", "channel_post", "edited_channel_post"]
             });
 
             let resp = match self.client.post(&url).json(&body).send().await {
