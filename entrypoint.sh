@@ -24,7 +24,6 @@ fetch_access_token() {
         --data-urlencode "refresh_token=${GOOGLE_REFRESH_TOKEN}" \
         --data-urlencode "grant_type=refresh_token")
 
-    # Use Python to parse JSON reliably (handles multiline responses)
     ACCESS_TOKEN=$(echo "$RESPONSE" | python3 -c "
 import sys, json
 try:
@@ -92,19 +91,13 @@ if [ ! -f "$CONFIG_FILE" ]; then
     cp "$TEMPLATE_FILE" "$CONFIG_FILE"
     chmod 600 "$CONFIG_FILE"
 
-    # Replace Telegram Token (Support both TELEGRAM_TOKEN and TELEGRAM_BOT_TOKEN)
+    # Replace Telegram Token
     TG_TOKEN=${TELEGRAM_TOKEN:-$TELEGRAM_BOT_TOKEN}
     if [ -n "$TG_TOKEN" ]; then
         echo "✅ Injecting Telegram token..."
         sed -i "s|YOUR_TELEGRAM_BOT_TOKEN_HERE|$TG_TOKEN|g" "$CONFIG_FILE"
     else
         echo "⚠️  No Telegram token found (checked TELEGRAM_TOKEN and TELEGRAM_BOT_TOKEN)"
-    fi
-
-    # Replace Groq API Key
-    if [ -n "$GROQ_API_KEY" ]; then
-        echo "✅ Injecting GROQ_API_KEY..."
-        sed -i "s|YOUR_GROQ_API_KEY_HERE|$GROQ_API_KEY|g" "$CONFIG_FILE"
     fi
 fi
 
