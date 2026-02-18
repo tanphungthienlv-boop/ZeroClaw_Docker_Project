@@ -5,10 +5,12 @@ set -e
 CONFIG_DIR="/root/.zeroclaw"
 CONFIG_FILE="$CONFIG_DIR/config.toml"
 TEMPLATE_FILE="/app/config/config.toml.example"
-TOKEN_FILE="$CONFIG_DIR/.access_token"
+GEMINI_DIR="/root/.gemini"
+OAUTH_CREDS_FILE="$GEMINI_DIR/oauth_creds.json"
 
-# Ensure config directory exists
+# Ensure directories exist
 mkdir -p "$CONFIG_DIR"
+mkdir -p "$GEMINI_DIR"
 
 # ── OAuth Token Exchange Function ─────────────────────────────────────
 fetch_access_token() {
@@ -24,6 +26,7 @@ fetch_access_token() {
         --data-urlencode "refresh_token=${GOOGLE_REFRESH_TOKEN}" \
         --data-urlencode "grant_type=refresh_token")
 
+    # Parse using Python3 for reliable JSON handling
     ACCESS_TOKEN=$(echo "$RESPONSE" | python3 -c "
 import sys, json
 try:
@@ -44,10 +47,25 @@ except Exception as e:
         return 1
     fi
 
-    echo "$ACCESS_TOKEN" > "$TOKEN_FILE"
-    chmod 600 "$TOKEN_FILE"
-    export ZEROCLAW_API_KEY="$ACCESS_TOKEN"
-    echo "✅ Access Token obtained successfully."
+    # Calculate expiry (1 hour from now) in RFC3339 format
+    EXPIRY=$(python3 -c "
+from datetime import datetime, timezone, timedelta
+expiry = datetime.now(timezone.utc) + timedelta(hours=1)
+print(expiry.strftime('%Y-%m-%dT%H:%M:%SZ'))
+")
+
+    # Write token to ~/.gemini/oauth_creds.json (where ZeroClaw's Gemini provider reads it)
+    python3 -c "
+import json
+creds = {
+    'access_token': '$ACCESS_TOKEN',
+    'expiry': '$EXPIRY'
+}
+with open('$OAUTH_CREDS_FILE', 'w') as f:
+    json.dump(creds, f, indent=2)
+"
+    chmod 600 "$OAUTH_CREDS_FILE"
+    echo "✅ Access Token written to $OAUTH_CREDS_FILE"
 }
 
 # ── Background Token Refresh Loop ────────────────────────────────────
@@ -55,30 +73,9 @@ token_refresh_loop() {
     while true; do
         sleep 3000  # Refresh every 50 minutes
         echo "🔄 Refreshing Google Access Token..."
-        RESPONSE=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
-            --data-urlencode "client_id=${GOOGLE_CLIENT_ID}" \
-            --data-urlencode "client_secret=${GOOGLE_CLIENT_SECRET}" \
-            --data-urlencode "refresh_token=${GOOGLE_REFRESH_TOKEN}" \
-            --data-urlencode "grant_type=refresh_token")
-
-        NEW_TOKEN=$(echo "$RESPONSE" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    token = data.get('access_token', '')
-    if token:
-        print(token)
-    else:
-        sys.exit(1)
-except:
-    sys.exit(1)
-" 2>/dev/null)
-
-        if [ -n "$NEW_TOKEN" ]; then
-            echo "$NEW_TOKEN" > "$TOKEN_FILE"
-            chmod 600 "$TOKEN_FILE"
-            export ZEROCLAW_API_KEY="$NEW_TOKEN"
-            echo "✅ Access Token refreshed at $(date)"
+        fetch_access_token
+        if [ $? -eq 0 ]; then
+            echo "✅ Token refreshed at $(date)"
         else
             echo "⚠️  Token refresh failed at $(date)"
         fi
