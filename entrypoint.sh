@@ -19,15 +19,29 @@ fetch_access_token() {
 
     echo "🔑 Fetching Google Access Token..."
     RESPONSE=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
-        -d "client_id=${GOOGLE_CLIENT_ID}" \
-        -d "client_secret=${GOOGLE_CLIENT_SECRET}" \
-        -d "refresh_token=${GOOGLE_REFRESH_TOKEN}" \
-        -d "grant_type=refresh_token")
+        --data-urlencode "client_id=${GOOGLE_CLIENT_ID}" \
+        --data-urlencode "client_secret=${GOOGLE_CLIENT_SECRET}" \
+        --data-urlencode "refresh_token=${GOOGLE_REFRESH_TOKEN}" \
+        --data-urlencode "grant_type=refresh_token")
 
-    ACCESS_TOKEN=$(echo "$RESPONSE" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+    # Use Python to parse JSON reliably (handles multiline responses)
+    ACCESS_TOKEN=$(echo "$RESPONSE" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    token = data.get('access_token', '')
+    if token:
+        print(token)
+    else:
+        print('ERROR: ' + str(data), file=sys.stderr)
+        sys.exit(1)
+except Exception as e:
+    print('PARSE_ERROR: ' + str(e), file=sys.stderr)
+    sys.exit(1)
+")
 
-    if [ -z "$ACCESS_TOKEN" ]; then
-        echo "❌ Failed to get Access Token. Response: $RESPONSE"
+    if [ $? -ne 0 ] || [ -z "$ACCESS_TOKEN" ]; then
+        echo "❌ Failed to parse Access Token from response"
         return 1
     fi
 
@@ -40,25 +54,34 @@ fetch_access_token() {
 # ── Background Token Refresh Loop ────────────────────────────────────
 token_refresh_loop() {
     while true; do
-        # Wait 50 minutes (3000 seconds) before refreshing
-        sleep 3000
+        sleep 3000  # Refresh every 50 minutes
         echo "🔄 Refreshing Google Access Token..."
         RESPONSE=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
-            -d "client_id=${GOOGLE_CLIENT_ID}" \
-            -d "client_secret=${GOOGLE_CLIENT_SECRET}" \
-            -d "refresh_token=${GOOGLE_REFRESH_TOKEN}" \
-            -d "grant_type=refresh_token")
+            --data-urlencode "client_id=${GOOGLE_CLIENT_ID}" \
+            --data-urlencode "client_secret=${GOOGLE_CLIENT_SECRET}" \
+            --data-urlencode "refresh_token=${GOOGLE_REFRESH_TOKEN}" \
+            --data-urlencode "grant_type=refresh_token")
 
-        NEW_TOKEN=$(echo "$RESPONSE" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+        NEW_TOKEN=$(echo "$RESPONSE" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    token = data.get('access_token', '')
+    if token:
+        print(token)
+    else:
+        sys.exit(1)
+except:
+    sys.exit(1)
+" 2>/dev/null)
 
         if [ -n "$NEW_TOKEN" ]; then
             echo "$NEW_TOKEN" > "$TOKEN_FILE"
             chmod 600 "$TOKEN_FILE"
-            # Update the env var for any new processes
             export ZEROCLAW_API_KEY="$NEW_TOKEN"
             echo "✅ Access Token refreshed at $(date)"
         else
-            echo "⚠️  Token refresh failed at $(date). Response: $RESPONSE"
+            echo "⚠️  Token refresh failed at $(date)"
         fi
     done
 }
@@ -90,8 +113,7 @@ fetch_access_token
 
 # ── Start Background Token Refresh ───────────────────────────────────
 token_refresh_loop &
-REFRESH_PID=$!
-echo "🔄 Token refresh loop started (PID: $REFRESH_PID)"
+echo "🔄 Token auto-refresh started (every 50 min)"
 
 # ── Start ZeroClaw Daemon ─────────────────────────────────────────────
 echo "🚀 Starting ZeroClaw Daemon..."
