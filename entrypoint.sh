@@ -14,10 +14,11 @@ if [ ! -f "$CONFIG_FILE" ]; then
     cp "$TEMPLATE_FILE" "$CONFIG_FILE"
     chmod 600 "$CONFIG_FILE"
 
-    # Replace Telegram Token
-    if [ -n "$TELEGRAM_TOKEN" ]; then
+    # Replace Telegram Token (Support both TELEGRAM_TOKEN and TELEGRAM_BOT_TOKEN)
+    TG_TOKEN=${TELEGRAM_TOKEN:-$TELEGRAM_BOT_TOKEN}
+    if [ -n "$TG_TOKEN" ]; then
         echo "✅ Injecting TELEGRAM_TOKEN..."
-        sed -i "s|YOUR_TELEGRAM_BOT_TOKEN_HERE|$TELEGRAM_TOKEN|g" "$CONFIG_FILE"
+        sed -i "s|YOUR_TELEGRAM_BOT_TOKEN_HERE|$TG_TOKEN|g" "$CONFIG_FILE"
     else
         echo "⚠️  TELEGRAM_TOKEN not set! Bot may not work."
         # Debugging: Print env vars to see what's available (masked)
@@ -35,6 +36,12 @@ if [ ! -f "$CONFIG_FILE" ]; then
     # but we can also inject it into the commented out line if we want explicit config)
     # The example file has: # api_key = "..."
     # We'll leave it to the app's internal env override logic for ZEROCLAW_API_KEY.
+    
+    # FIX: If user provides GOOGLE_REFRESH_TOKEN but not ZEROCLAW_API_KEY, map it!
+    if [ -z "$ZEROCLAW_API_KEY" ] && [ -n "$GOOGLE_REFRESH_TOKEN" ]; then
+        echo "🔄 Mapping GOOGLE_REFRESH_TOKEN to ZEROCLAW_API_KEY..."
+        export ZEROCLAW_API_KEY="$GOOGLE_REFRESH_TOKEN"
+    fi
 
     # Ensure binding to 0.0.0.0 for external access
     # specific fix if template has 127.0.0.1 (though our example has it right/wrong depending on version)
