@@ -19,6 +19,8 @@ if [ ! -f "$CONFIG_FILE" ]; then
         sed -i "s|YOUR_TELEGRAM_BOT_TOKEN_HERE|$TELEGRAM_TOKEN|g" "$CONFIG_FILE"
     else
         echo "⚠️  TELEGRAM_TOKEN not set! Bot may not work."
+        # Debugging: Print env vars to see what's available (masked)
+        env | grep -v 'KEY\|TOKEN\|SECRET\|PASSWORD' || true
     fi
 
     # Replace Groq API Key
