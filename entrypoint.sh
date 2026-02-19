@@ -82,21 +82,23 @@ token_refresh_loop() {
     done
 }
 
-# ── Generate Config File (first run only) ────────────────────────────
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "📜 Generating config.toml from template..."
-    cp "$TEMPLATE_FILE" "$CONFIG_FILE"
-    chmod 600 "$CONFIG_FILE"
+# ── ALWAYS regenerate config from template ────────────────────────────
+# Force regeneration every deploy to pick up template changes
+echo "📜 Generating config.toml from template..."
+cp "$TEMPLATE_FILE" "$CONFIG_FILE"
+chmod 600 "$CONFIG_FILE"
 
-    # Replace Telegram Token
-    TG_TOKEN=${TELEGRAM_TOKEN:-$TELEGRAM_BOT_TOKEN}
-    if [ -n "$TG_TOKEN" ]; then
-        echo "✅ Injecting Telegram token..."
-        sed -i "s|YOUR_TELEGRAM_BOT_TOKEN_HERE|$TG_TOKEN|g" "$CONFIG_FILE"
-    else
-        echo "⚠️  No Telegram token found (checked TELEGRAM_TOKEN and TELEGRAM_BOT_TOKEN)"
-    fi
+# Replace Telegram Token
+TG_TOKEN=${TELEGRAM_TOKEN:-$TELEGRAM_BOT_TOKEN}
+if [ -n "$TG_TOKEN" ]; then
+    echo "✅ Injecting Telegram token..."
+    sed -i "s|YOUR_TELEGRAM_BOT_TOKEN_HERE|$TG_TOKEN|g" "$CONFIG_FILE"
+else
+    echo "⚠️  No Telegram token found (checked TELEGRAM_TOKEN and TELEGRAM_BOT_TOKEN)"
 fi
+
+echo "📋 Config contents:"
+cat "$CONFIG_FILE"
 
 # ── Get Initial Access Token ─────────────────────────────────────────
 fetch_access_token
